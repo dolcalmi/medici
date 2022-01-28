@@ -75,29 +75,26 @@ export class Book<U extends ITransaction = ITransaction, J extends IJournal = IJ
   }
 
   async balance(query: IBalanceQuery, options = {} as IOptions): Promise<{ balance: number; notes: number }> {
-    const parsedQuery = parseBalanceQuery(query, this);
-    const meta = parsedQuery.meta;
-    delete parsedQuery.meta;
-
+    const { filterQuery, snapshotMeta } = parseBalanceQuery(query, this);
     let balanceSnapshot: IBalance | null = null;
     let accountForBalanceSnapshot: string | undefined;
     if (this.balanceSnapshotSec) {
       accountForBalanceSnapshot = query.account ? [].concat(query.account as never).join() : undefined;
       balanceSnapshot = await getBestSnapshot(
         {
-          book: parsedQuery.book,
+          book: filterQuery.book,
           account: accountForBalanceSnapshot,
-          meta,
+          meta: snapshotMeta,
         },
         options
       );
       if (balanceSnapshot) {
         // Use cached balance
-        parsedQuery._id = { $gt: balanceSnapshot.transaction };
+        filterQuery._id = { $gt: balanceSnapshot.transaction };
       }
     }
 
-    const match = { $match: parsedQuery };
+    const match = { $match: filterQuery };
 
     const result = (await transactionModel.collection.aggregate([match, GROUP], options).toArray())[0];
 
@@ -122,7 +119,7 @@ export class Book<U extends ITransaction = ITransaction, J extends IJournal = IJ
             {
               book: this.name,
               account: accountForBalanceSnapshot,
-              meta,
+              meta: snapshotMeta,
               transaction: result.lastTransactionId,
               balance,
               notes,
@@ -135,8 +132,8 @@ export class Book<U extends ITransaction = ITransaction, J extends IJournal = IJ
           const tooOld = Date.now() > balanceSnapshot.createdAt.getTime() + this.balanceSnapshotSec * 1000;
           // If it's too old we would need to cache another snapshot.
           if (tooOld) {
-            delete parsedQuery._id;
-            const match = { $match: parsedQuery };
+            delete filterQuery._id;
+            const match = { $match: filterQuery };
 
             // Important! We are going to recalculate the entire balance from the day one.
             // Since this operation can take seconds (if you have millions of documents)
@@ -154,7 +151,7 @@ export class Book<U extends ITransaction = ITransaction, J extends IJournal = IJ
                   {
                     book: this.name,
                     account: accountForBalanceSnapshot,
-                    meta,
+                    meta: snapshotMeta,
                     transaction: resultFull.lastTransactionId,
                     balance: parseFloat(resultFull.balance.toFixed(this.precision)),
                     notes: resultFull.notes,

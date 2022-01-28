@@ -68,10 +68,12 @@ describe("parseFilterQuery", () => {
     let bookmarked = true;
     const result1 = parseBalanceQuery({ clientId, bookmarked }, { name: "MyBook" });
     expect(result1).to.deep.equal({
-      book: "MyBook",
-      "meta.bookmarked": bookmarked,
-      "meta.clientId": clientId,
-      meta: { clientId, bookmarked }
+      filterQuery: {
+        book: "MyBook",
+        "meta.bookmarked": bookmarked,
+        "meta.clientId": clientId,
+      },
+      snapshotMeta: { clientId, bookmarked },
     });
 
     bookmarked = false;
