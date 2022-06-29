@@ -1,6 +1,7 @@
 import { Book } from "./Book";
 import type { Entry } from "./Entry";
 
+export * as mongoose from "mongoose";
 export { setJournalSchema } from "./models/journal";
 export { setTransactionSchema } from "./models/transaction";
 export { setLockSchema } from "./models/lock";
